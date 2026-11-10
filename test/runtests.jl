@@ -1,16 +1,11 @@
-using DiffEqCallbacks
-using Test
+using SciMLTesting
 
-# write your own tests here
-@time begin
-@time @testset "AutoAbstol" begin include("autoabstol_tests.jl") end
-@time @testset "TerminateSteadyState tests" begin include("terminatesteadystate_test.jl") end
-@time @testset "StepsizeLimiter tests" begin include("stepsizelimiter_tests.jl") end
-@time @testset "Function Calling tests" begin include("funccall_tests.jl") end
-@time @testset "Saving tests" begin include("saving_tests.jl") end
-@time @testset "PresetTime tests" begin include("preset_time.jl") end
-@time @testset "Iterative tests" begin include("iterative_tests.jl") end
-@time @testset "Periodic tests" begin include("periodic_tests.jl") end
-@time @testset "Manifold tests" begin include("manifold_tests.jl") end
-@time @testset "Domain tests" begin include("domain_tests.jl") end
+# The AD group is selectable by name only on non-prerelease Julia (the AD/sensitivity
+# stack — SciMLSensitivity, Tracker, Zygote — does not support prerelease). Under "All"
+# the AD folder always ran regardless of prerelease, and folder-discovery's "All" globs
+# the AD folder unconditionally, so "All" is unaffected by this guard.
+if current_group() == "AD" && !isempty(VERSION.prerelease)
+    # prerelease Julia: GROUP=AD runs nothing, matching the original NoPre gate.
+else
+    run_tests()
 end

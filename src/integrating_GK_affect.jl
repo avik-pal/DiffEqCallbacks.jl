@@ -1,0 +1,379 @@
+"""
+    gk_points::Vector{Vector{Float64}}
+
+Precomputed Gaussian-Kronrod nodes up to degree 3*10-1 = 29.
+Computed using QuadGK.jl with the command `[kronrod(i,-1,1)[1] for i in 1:10]`
+"""
+gk_points = [
+    [-0.7745966692414833, 0.0, 0.7745966692414834],
+    [-0.9258200997725514, -0.5773502691896257, 0.0, 0.5773502691896257, 0.9258200997725514],
+    [
+        -0.9604912687080203, -0.7745966692414834, -0.43424374934680254,
+        0.0, 0.43424374934680254, 0.7745966692414834, 0.9604912687080203,
+    ],
+    [
+        -0.9765602507375731, -0.8611363115940526, -0.64028621749631, -0.33998104358485626,
+        0.0, 0.33998104358485626, 0.64028621749631, 0.8611363115940525, 0.976560250737573,
+    ],
+    [
+        -0.9840853600948425, -0.906179845938664, -0.7541667265708493,
+        -0.5384693101056831, -0.2796304131617833, 0.0, 0.2796304131617833,
+        0.538469310105683, 0.7541667265708494, 0.9061798459386639, 0.9840853600948425,
+    ],
+    [
+        -0.9887032026126789, -0.932469514203152, -0.8213733408650279,
+        -0.6612093864662645, -0.4631182124753046, -0.238619186083197,
+        0.0, 0.238619186083197, 0.4631182124753046, 0.6612093864662645,
+        0.8213733408650279, 0.932469514203152, 0.9887032026126787,
+    ],
+    [
+        -0.9914553711208126, -0.9491079123427585, -0.8648644233597691, -0.7415311855993945,
+        -0.5860872354676911, -0.4058451513773972, -0.2077849550078985,
+        0.0, 0.2077849550078985, 0.4058451513773971, 0.5860872354676911,
+        0.7415311855993945, 0.8648644233597691, 0.9491079123427584, 0.9914553711208125,
+    ],
+    [
+        -0.9933798758817161, -0.9602898564975362, -0.8941209068474564, -0.7966664774136267,
+        -0.6723540709451586, -0.525532409916329, -0.360701097928132, -0.18343464249564978,
+        0.0, 0.1834346424956499, 0.360701097928132, 0.525532409916329, 0.6723540709451585,
+        0.7966664774136267, 0.8941209068474563, 0.9602898564975362, 0.9933798758817161,
+    ],
+    [
+        -0.9946781606773403, -0.9681602395076261, -0.9149635072496779, -0.8360311073266358,
+        -0.7344867651839337, -0.6133714327005905, -0.47546247911245987,
+        -0.324253423403809, -0.1642235636149867, 0.0, 0.1642235636149867,
+        0.324253423403809, 0.47546247911245976, 0.6133714327005904, 0.7344867651839337,
+        0.8360311073266358, 0.914963507249678, 0.9681602395076261, 0.9946781606773403,
+    ],
+    [
+        -0.9956571630258081, -0.9739065285171717, -0.9301574913557082,
+        -0.8650633666889844, -0.7808177265864169, -0.6794095682990243,
+        -0.5627571346686047, -0.4333953941292472, -0.29439286270146026,
+        -0.14887433898163116, 0.0, 0.14887433898163116, 0.29439286270146026,
+        0.4333953941292472, 0.5627571346686047, 0.6794095682990244, 0.7808177265864169,
+        0.8650633666889844, 0.9301574913557082, 0.9739065285171717, 0.995657163025808,
+    ],
+]
+
+"""
+    gk_weights::Vector{Vector{Float64}}
+
+Precomputed Gaussian-Kronrod node weights up to degree 3*10-1 = 29.
+Computed using QuadGK.jl with the command `[kronrod(i,-1,1)[2] for i in 1:10]`
+"""
+gk_weights = [
+    [0.5555555555555556, 0.8888888888888888, 0.5555555555555556],
+    [
+        0.19797979797979798, 0.4909090909090911, 0.6222222222222223,
+        0.4909090909090911, 0.19797979797979798,
+    ],
+    [
+        0.10465622602646725, 0.26848808986833345, 0.4013974147759622, 0.45091653865847414,
+        0.4013974147759622, 0.26848808986833345, 0.10465622602646725,
+    ],
+    [
+        0.06297737366547303, 0.1700536053357228, 0.26679834045228457,
+        0.32694918960145164, 0.3464429818901364, 0.32694918960145164,
+        0.26679834045228457, 0.1700536053357228, 0.06297737366547303,
+    ],
+    [
+        0.04258203675108178, 0.11523331662247335, 0.18680079655649262, 0.24104033922864765,
+        0.2728498019125588, 0.28298741785749126, 0.2728498019125588, 0.24104033922864765,
+        0.18680079655649262, 0.11523331662247335, 0.04258203675108178,
+    ],
+    [
+        0.03039615411981984, 0.08369444044690652, 0.13732060463444698,
+        0.1810719943231376, 0.21320965227196234, 0.23377086411699424,
+        0.2410725801734648, 0.23377086411699424, 0.21320965227196234, 0.1810719943231376,
+        0.13732060463444698, 0.08369444044690652, 0.03039615411981984,
+    ],
+    [
+        0.022935322010529256, 0.06309209262997842, 0.10479001032225017, 0.14065325971552592,
+        0.16900472663926788, 0.19035057806478559, 0.20443294007529877, 0.20948214108472793,
+        0.20443294007529877, 0.19035057806478559, 0.16900472663926788, 0.14065325971552592,
+        0.10479001032225017, 0.06309209262997842, 0.022935322010529256,
+    ],
+    [
+        0.017822383320710525, 0.049439395002139175, 0.08248229893135833,
+        0.11164637082683965, 0.13626310925517227, 0.15665260616818855,
+        0.17207060855521134, 0.18140002506803451, 0.1844464057446918, 0.18140002506803451,
+        0.17207060855521134, 0.15665260616818855, 0.13626310925517227, 0.11164637082683965,
+        0.08248229893135833, 0.049439395002139175, 0.017822383320710525,
+    ],
+    [
+        0.014304775643838873, 0.03963189516026116, 0.06651815594027412, 0.09079068168872645,
+        0.11178913468441828, 0.13000140685534115, 0.1452395883843662, 0.1564135277884838,
+        0.16286282744011493, 0.16489601282834956, 0.16286282744011493, 0.1564135277884838,
+        0.1452395883843662, 0.13000140685534115, 0.11178913468441828, 0.09079068168872645,
+        0.06651815594027412, 0.03963189516026116, 0.014304775643838873,
+    ],
+    [
+        0.011694638867371846, 0.03255816230796465, 0.05475589657435192,
+        0.07503967481091997, 0.09312545458369768, 0.10938715880229767,
+        0.12349197626206591, 0.1347092173114734, 0.14277593857706, 0.1477391049013384,
+        0.1494455540029169, 0.1477391049013384, 0.14277593857706, 0.1347092173114734,
+        0.12349197626206591, 0.10938715880229767, 0.09312545458369768, 0.07503967481091997,
+        0.05475589657435192, 0.03255816230796465, 0.011694638867371846,
+    ],
+]
+"""
+    g_weights::Vector{Vector{Float64}}
+
+Precomputed respective Gaussian node weights up to degree 2*10-1 = 19.
+Computed using QuadGK.jl with the command `[kronrod(i,-1,1)[3] for i in 1:10]`
+"""
+g_weights = [
+    [2.0],
+    [1.0000000000000002, 1.0000000000000002],
+    [0.5555555555555556, 0.8888888888888885, 0.5555555555555556],
+    [0.347854845137454, 0.652145154862546, 0.652145154862546, 0.347854845137454],
+    [
+        0.2369268850561892, 0.4786286704993663, 0.5688888888888887,
+        0.4786286704993663, 0.2369268850561892,
+    ],
+    [
+        0.17132449237917044, 0.36076157304813855, 0.4679139345726909,
+        0.4679139345726909, 0.36076157304813855, 0.17132449237917044,
+    ],
+    [
+        0.12948496616886981, 0.2797053914892767, 0.38183005050511887, 0.41795918367346907,
+        0.38183005050511887, 0.2797053914892767, 0.12948496616886981,
+    ],
+    [
+        0.10122853629037629, 0.22238103445337457, 0.3137066458778873, 0.3626837833783619,
+        0.3626837833783619, 0.3137066458778873, 0.22238103445337457, 0.10122853629037629,
+    ],
+    [
+        0.08127438836157448, 0.1806481606948575, 0.26061069640293544,
+        0.31234707704000275, 0.3302393550012595, 0.31234707704000275,
+        0.26061069640293544, 0.1806481606948575, 0.08127438836157448,
+    ],
+    [
+        0.06667134430868811, 0.14945134915058084, 0.2190863625159821, 0.26926671930999635,
+        0.29552422471475276, 0.29552422471475276, 0.26926671930999635,
+        0.2190863625159821, 0.14945134915058084, 0.06667134430868811,
+    ],
+]
+
+# Bisection past this depth cannot improve a Float64 quadrature estimate:
+# the subinterval width is then at the resolution of the interval endpoints.
+const GK_MAX_DEPTH = 50
+
+# A component error estimate at this multiple of roundoff times that
+# component's integral scale is floating-point noise that bisection cannot
+# reduce, so subdivision stops once every component is at that level.
+const GK_ROUNDOFF_FACTOR = 100
+
+function gk_has_resolvable_error(gk_step_cache, gk_err_cache, half_width)
+    err = abs.((gk_step_cache .- gk_err_cache) .* half_width)
+    scale = abs.(gk_step_cache .* half_width)
+    return any(err .> GK_ROUNDOFF_FACTOR * eps(real(eltype(gk_step_cache))) .* scale)
+end
+
+function warn_gk_tol_unmet!(affect!)
+    if !affect!.tol_warned
+        affect!.tol_warned = true
+        @warn "Gauss-Kronrod quadrature stopped before reaching the requested " *
+            "tolerance tol = $(affect!.tol): the subinterval or error estimate " *
+            "reached the limit of floating-point resolution, so further " *
+            "subdivision cannot reliably reduce it. The computed integral may " *
+            "be less accurate than the requested tolerance."
+    end
+    return nothing
+end
+
+mutable struct SavingIntegrandGKAffect{
+        IntegrandFunc,
+        tType,
+        IntegrandType,
+        IntegrandCacheType,
+        tolType,
+        QuadratureType,
+    }
+    integrand_func::IntegrandFunc
+    integrand_values::IntegrandValues{tType, IntegrandType}
+    integrand_cache::IntegrandCacheType
+    accumulation_cache::IntegrandCacheType
+    gk_step_cache::IntegrandCacheType
+    gk_err_cache::IntegrandCacheType
+    tol::tolType
+    gk_pts::Vector{Vector{QuadratureType}}
+    gk_ws::Vector{Vector{QuadratureType}}
+    g_ws::Vector{Vector{QuadratureType}}
+    tol_warned::Bool
+end
+
+function integrate_gk!(
+        affect!::SavingIntegrandGKAffect, integrator,
+        bound_l, bound_r; order = 7, tol = 1.0e-7, depth = 0
+    )
+    affect!.gk_step_cache = recursive_zero!(affect!.gk_step_cache)
+    affect!.gk_err_cache = recursive_zero!(affect!.gk_err_cache)
+    for i in 1:(2 * order + 1)
+        t_temp = (affect!.gk_pts[order][i] + 1) * ((bound_r - bound_l) / 2) + bound_l
+        if SciMLBase.isinplace(integrator.sol.prob)
+            curu = first(get_tmp_cache(integrator))
+            integrator(curu, t_temp)
+            if affect!.integrand_cache == nothing
+                affect!.gk_step_cache = recursive_axpy!(
+                    affect!.gk_ws[order][i],
+                    affect!.integrand_func(curu, t_temp, integrator), affect!.gk_step_cache
+                )
+                if i % 2 == 0
+                    affect!.gk_err_cache = recursive_axpy!(
+                        affect!.g_ws[order][div(i, 2)],
+                        affect!.integrand_func(curu, t_temp, integrator), affect!.gk_err_cache
+                    )
+                end
+            else
+                affect!.integrand_func(affect!.integrand_cache, curu, t_temp, integrator)
+                affect!.gk_step_cache = recursive_axpy!(
+                    affect!.gk_ws[order][i],
+                    affect!.integrand_cache, affect!.gk_step_cache
+                )
+                if i % 2 == 0
+                    affect!.gk_err_cache = recursive_axpy!(
+                        affect!.g_ws[order][div(i, 2)],
+                        affect!.integrand_cache, affect!.gk_err_cache
+                    )
+                end
+            end
+        else
+            affect!.gk_step_cache = recursive_axpy!(
+                affect!.gk_ws[order][i],
+                affect!.integrand_func(integrator(t_temp), t_temp, integrator), affect!.gk_step_cache
+            )
+            if i % 2 == 0
+                affect!.gk_err_cache = recursive_axpy!(
+                    affect!.g_ws[order][div(i, 2)],
+                    affect!.integrand_func(integrator(t_temp), t_temp, integrator), affect!.gk_err_cache
+                )
+            end
+        end
+    end
+    err_est = sum(
+        abs.((affect!.gk_step_cache .- affect!.gk_err_cache) .* (bound_r - bound_l) ./ 2)
+    )
+    bound_m = (bound_l + bound_r) / 2
+    if err_est > tol && depth < GK_MAX_DEPTH && bound_m != bound_l && bound_m != bound_r &&
+            gk_has_resolvable_error(
+            affect!.gk_step_cache, affect!.gk_err_cache, (bound_r - bound_l) / 2
+        )
+        integrate_gk!(
+            affect!, integrator, bound_l, bound_m,
+            order = order, tol = tol / 2, depth = depth + 1
+        )
+        integrate_gk!(
+            affect!, integrator, bound_m, bound_r,
+            order = order, tol = tol / 2, depth = depth + 1
+        )
+        return nothing
+    end
+    if err_est > tol
+        warn_gk_tol_unmet!(affect!)
+    end
+    affect!.accumulation_cache = recursive_axpy!(
+        1, affect!.gk_step_cache .* (bound_r - bound_l) ./ 2, affect!.accumulation_cache
+    )
+    return nothing
+end
+
+function (affect!::SavingIntegrandGKAffect)(integrator)
+    n = 0
+    if integrator.sol.prob isa Union{SDEProblem, RODEProblem}
+        throw("Gauss-Kronrod algorithm is not necessarily convergent for this problem type")
+    else
+        n = div(SciMLBase.alg_order(integrator.alg) + 1, 2)
+    end
+    affect!.accumulation_cache = recursive_zero!(affect!.accumulation_cache)
+    integrate_gk!(
+        affect!, integrator, integrator.tprev, integrator.t, order = n, tol = affect!.tol
+    )
+    push!(affect!.integrand_values.ts, integrator.t)
+    push!(affect!.integrand_values.integrand, recursive_copy(affect!.accumulation_cache))
+    return derivative_discontinuity!(integrator, false)
+end
+
+function IntegratingGK_initialize(cb, u, t, integrator)
+    cb.affect!.tol_warned = false
+    return INITIALIZE_DEFAULT(cb, u, t, integrator)
+end
+
+"""
+    IntegratingGKCallback(integrand_func, integrand_values::IntegrandValues,
+        integrand_prototype, tol = 1.0e-7) -> DiscreteCallback
+
+Construct a callback that uses adaptive Gauss-Kronrod quadrature to save one integral
+estimate over each accepted solver step in `integrand_values.integrand`. Quadrature nodes
+and weights are evaluated in the element type of the integrand and the integration time,
+so higher-precision integrands such as `BigFloat` are not capped at `Float64` precision.
+
+# Arguments
+
+  - `integrand_func`: for out-of-place problems, define
+    `integrand_func(u, t, integrator)` to return the integrand. For in-place problems,
+    define `integrand_func(out, u, t, integrator)` to write the integrand into `out`.
+    Returned values must be compatible with `integrand_values`.
+  - `integrand_values::IntegrandValues`: storage for accepted-step end times and quadrature
+    estimates. Construct it as `IntegrandValues(time_type, integrand_type)` with an
+    `integrand_type` that accepts the returned integrand values.
+  - `integrand_prototype`: representative integrand output used to allocate the
+    in-place cache.
+  - `tol::Real = 1.0e-7`: absolute error tolerance for adaptive quadrature on each accepted
+    solver step. A tolerance below the floating-point roundoff level of every integrand
+    component cannot be reached by further subdivision: subdivision stops at that level, a
+    warning states that the tolerance was not met, and the best estimate is used.
+
+# Returns
+
+  - `DiscreteCallback`: a callback that appends one Gauss-Kronrod estimate after
+    each accepted step.
+
+# Throws
+
+  - An exception when used with an `SDEProblem` or `RODEProblem`, for which this
+    Gauss-Kronrod algorithm is not guaranteed to converge.
+
+# Examples
+
+```julia
+using DiffEqCallbacks, OrdinaryDiffEq
+
+prob = ODEProblem((u, p, t) -> -u, 1.0, (0.0, 1.0))
+values = IntegrandValues(Float64, Float64)
+cb = IntegratingGKCallback((u, t, integrator) -> u^2, values, 0.0)
+
+sol = solve(prob, Tsit5(); callback = cb)
+integrals_by_step = values.integrand
+```
+
+!!! note
+
+    Method has automatic error control (h-adaptive quadrature).
+
+    This method is currently limited to ODE solvers of order 10 or lower.
+
+    For the four-argument in-place form of `integrand_func`, pass an
+    `integrand_prototype` that can be used as its output buffer.
+"""
+function IntegratingGKCallback(
+        integrand_func, integrand_values::IntegrandValues, integrand_prototype, tol = 1.0e-7
+    )
+    integrand_el = eltype(eltype(integrand_values.integrand))
+    time_el = eltype(integrand_values.ts)
+    prototype_el = integrand_prototype === nothing ? integrand_el : eltype(integrand_prototype)
+    quadrature_el = _quadrature_eltype(integrand_el, time_el, prototype_el)
+    gk_pts, gk_ws, g_ws = _gk_tables(quadrature_el)
+    affect! = SavingIntegrandGKAffect(
+        integrand_func, integrand_values, integrand_prototype,
+        allocate_zeros(integrand_prototype), allocate_zeros(integrand_prototype), allocate_zeros(integrand_prototype), tol,
+        gk_pts, gk_ws, g_ws, false
+    )
+    condition = true_condition
+    return DiscreteCallback(
+        condition, affect!, save_positions = (false, false),
+        initialize = IntegratingGK_initialize
+    )
+end
+
+export IntegratingGKCallback

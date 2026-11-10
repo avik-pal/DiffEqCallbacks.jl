@@ -1,37 +1,78 @@
 mutable struct AutoAbstolAffect{T}
-  curmax::T
+    curmax::T
 end
 # Now make `affect!` for this:
 function (p::AutoAbstolAffect)(integrator)
-  if typeof(p.curmax) <: AbstractArray
-    @. p.curmax = max(p.curmax,abs(integrator.u))
-  else
-    p.curmax = max(p.curmax,maximum(abs.(integrator.u)))
-  end
+    if p.curmax isa AbstractArray
+        @. p.curmax = max(p.curmax, SciMLBase.value(abs(integrator.u)))
+    else
+        p.curmax = max(p.curmax, SciMLBase.value(maximum(abs, integrator.u)))
+    end
 
-  if typeof(integrator.opts.abstol) <: AbstractArray
-    integrator.opts.abstol .= p.curmax .* integrator.opts.reltol
-  else
-    integrator.opts.abstol = p.curmax .* integrator.opts.reltol
-  end
+    if integrator.opts.abstol isa AbstractArray
+        integrator.opts.abstol .= p.curmax .* integrator.opts.reltol
+    else
+        integrator.opts.abstol = p.curmax .* integrator.opts.reltol
+    end
 
-  u_modified!(integrator,false)
+    return derivative_discontinuity!(integrator, false)
 end
 
-function AutoAbstol_initialize(cb,u,t,integrator)
-  if cb.affect!.curmax == zero(integrator.opts.abstol)
-    cb.affect!.curmax = integrator.opts.abstol
-  end
-  u_modified!(integrator,false)
+function AutoAbstol_initialize(cb, u, t, integrator)
+    if cb.affect!.curmax == zero(integrator.opts.abstol)
+        # No broadcast: for plain tolerances `value` is the identity, so an array
+        # `abstol` is adopted by reference and a scalar `Dual` `abstol` is still
+        # unwrapped. `Dual` state and `Dual` `init_curmax` are unwrapped above and
+        # in the constructor.
+        cb.affect!.curmax = SciMLBase.value(integrator.opts.abstol)
+    end
+    return derivative_discontinuity!(integrator, false)
 end
 
-function AutoAbstol(save=true;init_curmax=0.0)
-  affect! = AutoAbstolAffect(abs.(init_curmax))
-  condtion = (u,t,integrator) -> true
-  save_positions = (save,false)
-  DiscreteCallback(condtion,affect!;
-                   initialize = AutoAbstol_initialize,
-                   save_positions=save_positions)
+"""
+    AutoAbstol(save = true; init_curmax = 0.0) -> DiscreteCallback
+
+Construct a callback that updates `integrator.opts.abstol` after every accepted step to the
+largest magnitude observed in the state so far, multiplied by `integrator.opts.reltol`.
+Only the primal values of the state feed the tracked maximum, so a solve using
+this callback remains differentiable with `ForwardDiff.jl`.
+
+# Arguments
+
+  - `save::Bool = true`: save the solution immediately before the callback affect. Set this
+    to `false` when another callback controls saving.
+
+# Keywords
+
+  - `init_curmax = 0.0`: initial maximum state magnitude. A zero value is replaced during
+    initialization with the integrator's configured `abstol`; arrays update elementwise.
+
+# Returns
+
+  - `DiscreteCallback`: a callback that updates the absolute tolerance after each accepted
+    step without marking the state as modified.
+
+# Examples
+
+```julia
+using DiffEqCallbacks, OrdinaryDiffEq
+
+f(u, p, t) = 0.5u
+prob = ODEProblem(f, 1.0, (0.0, 2.0))
+cb = AutoAbstol(; init_curmax = 1.0e-8)
+
+sol = solve(prob, Tsit5(); callback = cb, reltol = 1.0e-6)
+```
+"""
+function AutoAbstol(save = true; init_curmax = 0.0)
+    affect! = AutoAbstolAffect(SciMLBase.value.(abs.(init_curmax)))
+    condition = true_condition
+    save_positions = (save, false)
+    return DiscreteCallback(
+        condition, affect!;
+        initialize = AutoAbstol_initialize,
+        save_positions = save_positions
+    )
 end
 
 export AutoAbstol

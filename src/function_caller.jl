@@ -1,4 +1,7 @@
-mutable struct FunctionCallingAffect{funcFunc, funcatType, funcatCacheType}
+mutable struct FunctionCallingAffect{
+        funcFunc, funcatType <: AbstractVector,
+        funcatCacheType <: Union{AbstractVector, Number},
+    }
     func::funcFunc
     funcat::funcatType
     funcat_cache::funcatCacheType
@@ -7,21 +10,22 @@ mutable struct FunctionCallingAffect{funcFunc, funcatType, funcatCacheType}
     funciter::Int
 end
 
-function (affect!::FunctionCallingAffect)(integrator,force_func = false)
+function (affect!::FunctionCallingAffect)(integrator, force_func = false)
     # see OrdinaryDiffEq.jl -> integrator_utils.jl, function funcvalues!
-    while !isempty(affect!.funcat) && integrator.tdir * first(affect!.funcat) <= integrator.tdir * integrator.t # Perform funcat
+    while affect!.funciter <= length(affect!.funcat) &&
+            integrator.tdir * affect!.funcat[affect!.funciter] <= integrator.tdir * integrator.t # Perform funcat
+        curt = affect!.funcat[affect!.funciter] # current time
         affect!.funciter += 1
-        curt = pop!(affect!.funcat) # current time
         if curt != integrator.t # If <t, interpolate
-            if typeof(integrator) <: ODEIntegrator
+            if integrator isa SciMLBase.AbstractODEIntegrator
                 # Expand lazy dense for interpolation
-                DiffEqBase.addsteps!(integrator)
+                SciMLBase.addsteps!(integrator)
             end
-            if typeof(integrator.u) <: Union{Number,SArray}
+            if !SciMLBase.isinplace(integrator.sol.prob)
                 curu = integrator(curt)
             else
                 curu = first(get_tmp_cache(integrator))
-                integrator(curu,curt) # inplace since func_func allocates
+                integrator(curu, curt) # inplace since func_func allocates
             end
             affect!.func(curu, curt, integrator)
         else # ==t, just func
@@ -29,58 +33,101 @@ function (affect!::FunctionCallingAffect)(integrator,force_func = false)
         end
     end
     if affect!.func_everystep || force_func
-        affect!.funciter += 1
         affect!.func(integrator.u, integrator.t, integrator)
     end
-    u_modified!(integrator, false)
+    return derivative_discontinuity!(integrator, false)
 end
 
 function functioncalling_initialize(cb, u, t, integrator)
-    if cb.affect!.funciter != 0
-        if integrator.tdir > 0
-            cb.affect!.funcat = BinaryMinHeap(cb.affect!.funcat_cache)
+    funcat_cache = cb.affect!.funcat_cache
+    if cb.affect!.funciter != 1 || funcat_cache isa Number
+        tspan = integrator.sol.prob.tspan
+        funcat_vec = if funcat_cache isa Number
+            step = funcat_cache
+            t0, tf = tspan
+            if !cb.affect!.func_start
+                t0 += step
+            end
+            collect(t0:step:tf)
         else
-            cb.affect!.funcat = BinaryMaxHeap(cb.affect!.funcat_cache)
+            funcat_cache # Already reversed in the main function if td < 0
         end
-        cb.affect!.funciter = 0
+        cb.affect!.funcat = funcat_vec
+        cb.affect!.funciter = 1
     end
     cb.affect!.func_start && cb.affect!(integrator)
+    return derivative_discontinuity!(integrator, false)
 end
-
 
 """
     FunctionCallingCallback(func;
-                    funcat=Vector{Float64}(),
-                    func_everystep=isempty(funcat),
-                    func_start = true,
-                    tdir=1)
+        funcat = Vector{Float64}(),
+        func_everystep = isempty(funcat),
+        func_start = true,
+        tdir = 1) -> DiscreteCallback
 
-A `DiscreteCallback` applied after every step to call `func(u,t,integrator)`
-If `func_everystep`, every step of the integrator gives a `func` call.
-If `funcat` is specified, the function is called at the given times, using
-interpolation if necessary.
-If the time `tdir` direction is not positive, i.e. `tspan[1] > tspan[2]`,
-`tdir = -1` has to be specified.
+The function calling callback lets you define a function `func(u,t,integrator)`
+which gets called at the time points of interest.
+
+# Arguments
+
+  - `func`: function called as `func(u, t, integrator)` at each selected time. Its return
+    value is ignored, and it should not modify `u` or the integrator.
+
+# Keywords
+
+  - `funcat = Vector{Float64}()`: selected integration times, or a scalar interval at which
+    to call `func` throughout the problem time span.
+  - `func_everystep::Bool = isempty(funcat)`: whether to call `func` after every accepted
+    step.
+  - `func_start::Bool = true`: whether to call `func` at the initial condition.
+  - `tdir = 1`: integration direction used to order `funcat`. Set this to
+    `sign(tspan[end] - tspan[1])` for reverse-time problems.
+
+# Returns
+
+  - `DiscreteCallback`: a callback that calls `func` without modifying the integrator state.
+
+# Examples
+
+```julia
+using DiffEqCallbacks, OrdinaryDiffEq
+
+seen = Float64[]
+func = (u, t, integrator) -> push!(seen, t)
+cb = FunctionCallingCallback(func; funcat = 0.0:0.25:1.0)
+
+prob = ODEProblem((u, p, t) -> -u, 1.0, (0.0, 1.0))
+sol = solve(prob, Tsit5(); callback = cb)
+```
 """
-function FunctionCallingCallback(func;
-                        funcat=Vector{Float64}(),
-                        func_everystep=isempty(funcat),
-                        func_start = true,
-                        tdir=1)
+function FunctionCallingCallback(
+        func;
+        funcat = Vector{Float64}(),
+        func_everystep = isempty(funcat),
+        func_start = true,
+        tdir = 1
+    )
     # funcat conversions, see OrdinaryDiffEq.jl -> integrators/type.jl
-    funcat_vec = collect(funcat)
-    if tdir > 0
-        funcat_internal = BinaryMinHeap(funcat_vec)
+    if funcat isa Number
+        # expand to range using tspan in functioncalling_initialize
+        funcat_internal = fill(funcat, 0)
+        funcat_cache = funcat
     else
-        funcat_internal = BinaryMaxHeap(funcat_vec)
+        funcat_internal = tdir > 0 ? collect(sort(funcat)) : collect(reverse(sort(funcat)))
+        funcat_cache = funcat_internal
     end
-    affect! = FunctionCallingAffect(func, funcat_internal,
-                                    funcat_vec, func_everystep, func_start, 0)
-    condtion = (u, t, integrator) -> true
-    DiscreteCallback(condtion, affect!;
-                     initialize = functioncalling_initialize,
-                     save_positions=(false,false))
-end
 
+    affect! = FunctionCallingAffect(
+        func, funcat_internal,
+        funcat_cache, func_everystep, func_start, 1
+    )
+    condition = true_condition
+    return DiscreteCallback(
+        condition, affect!;
+        initialize = functioncalling_initialize,
+        save_positions = (false, false)
+    )
+end
 
 export FunctionCallingCallback

@@ -1,0 +1,301 @@
+using OrdinaryDiffEqLowOrderRK, OrdinaryDiffEqTsit5, DiffEqCallbacks
+using QuadGK
+using Test
+
+prob = ODEProblem((u, p, t) -> [1.0], [0.0], (0.0, 1.0))
+integrated = IntegrandValuesSum(zeros(1))
+sol = solve(
+    prob, Euler(),
+    callback = IntegratingGKSumCallback(
+        (u, t, integrator) -> [1.0], integrated, Float64[0.0]
+    ),
+    dt = 0.1
+)
+@test integrated.integrand[1] == 1
+
+# test to enter recursion
+integrated = IntegrandValuesSum(zeros(1))
+sol = solve(
+    prob, Euler(),
+    callback = IntegratingGKSumCallback(
+        (u, t, integrator) -> [cos.(1000 * u[1])], integrated, Float64[0.0]
+    ),
+    dt = 0.1
+)
+@test sum(integrated.integrand)[1] .≈ sin(1000) / 1000
+
+integrated_scalar = IntegrandValuesSum(0.0)
+sol = solve(
+    prob, Euler(),
+    callback = IntegratingGKSumCallback(
+        (u, t, integrator) -> u[1], integrated_scalar, 0.0
+    ),
+    dt = 0.1
+)
+@test integrated_scalar.integrand ≈ 0.5
+
+#### TESTING ON LINEAR SYSTEM WITH ANALYTICAL SOLUTION ####
+
+function compute_dGdp(integrand)
+    temp = zeros(length(integrand.integrand), length(integrand.integrand[1]))
+    for i in 1:length(integrand.integrand)
+        for j in 1:length(integrand.integrand[1])
+            temp[i, j] = integrand.integrand[i][j]
+        end
+    end
+    return sum(temp, dims = 1)[:]
+end
+
+function simple_linear_system(u, p, t)
+    a, b = p
+    return [-a * u[2], b * u[1]]
+end
+
+function adjoint_linear(u, p, t, sol)
+    a, b = p
+    return -[0 b; -a 0] * u - 2.0 * (sol(t) .- 1.0)
+end
+
+function adjoint_linear_inplace(du, u, p, t, sol)
+    a, b = p
+    return du .= -[0 b; -a 0] * u - 2.0 * (sol(t) .- 1.0)
+end
+
+function analytical_derivative(p, t)
+    a, b = p
+    d1 = (
+        b * (
+            (cos(2t * sqrt(a * b)) - 4cos(t * sqrt(a * b))) / (b * sqrt(a / b)) +
+                (b * t * cos(2t * sqrt(a * b))) / sqrt(a * b) +
+                (-4b * t * cos(t * sqrt(a * b))) / sqrt(a * b) +
+                2(
+                (2b * t * sin(t * sqrt(a * b))) / sqrt(a * b) +
+                    (-b * t * sin(2t * sqrt(a * b))) / sqrt(a * b)
+            ) * sqrt(a / b)
+        ) +
+            (b * t * (a + 3b)) / sqrt(a * b) +
+            (-a * b * t * cos(2t * sqrt(a * b))) / sqrt(a * b) + 3 / sqrt(a / b) +
+            2t * sqrt(a * b) - sin(2t * sqrt(a * b))
+    ) / (4.0(a^0.5) * (b^1.5)) +
+        (
+        (3a * (b / (a^2))) / sqrt(b / a) +
+            (a * (b / (a^2)) * cos(2t * sqrt(a * b))) / sqrt(b / a) +
+            (b * t * (b + 3a)) / sqrt(a * b) +
+            (b * t * (a - b) * cos(2t * sqrt(a * b))) / sqrt(a * b) +
+            (-4a * (b / (a^2)) * cos(t * sqrt(a * b))) / sqrt(b / a) +
+            (-4a * b * t * cos(t * sqrt(a * b))) / sqrt(a * b) +
+            (2a * b * t * sqrt(b / a) * sin(2t * sqrt(a * b))) / sqrt(a * b) +
+            (-4a * b * t * sqrt(b / a) * sin(t * sqrt(a * b))) / sqrt(a * b) +
+            6t * sqrt(a * b) + 8sqrt(b / a) * cos(t * sqrt(a * b)) + sin(2t * sqrt(a * b)) -
+            6sqrt(b / a) - 8sin(t * sqrt(a * b)) - 2sqrt(b / a) * cos(2t * sqrt(a * b))
+    ) /
+        (4.0(a^1.5) * (b^0.5)) +
+        (
+        -2.0(b^1.5) *
+            (
+            (
+                b * (
+                    2(cos(2t * sqrt(a * b)) - 4cos(t * sqrt(a * b))) * sqrt(a / b) +
+                        sin(2t * sqrt(a * b)) - 8sin(t * sqrt(a * b))
+                ) + 6b * sqrt(a / b) +
+                    2t * (a + 3b) * sqrt(a * b) - a * sin(2t * sqrt(a * b))
+            ) / (16.0a * (b^3.0))
+        )
+    ) /
+        (a^0.5) -
+        6.0(a^0.5) * (b^0.5) *
+        (
+        (
+            (a - b) * sin(2t * sqrt(a * b)) + 8a * sqrt(b / a) * cos(t * sqrt(a * b)) +
+                2t * (b + 3a) * sqrt(a * b) - 6a * sqrt(b / a) - 8a * sin(t * sqrt(a * b)) -
+                2a * sqrt(b / a) * cos(2t * sqrt(a * b))
+        ) / (16.0b * (a^3.0))
+    )
+    d2 = (
+        b * (
+            (a * t * cos(2t * sqrt(a * b))) / sqrt(a * b) +
+                (-(a / (b^2)) * (cos(2t * sqrt(a * b)) - 4cos(t * sqrt(a * b)))) / sqrt(a / b) +
+                (-4a * t * cos(t * sqrt(a * b))) / sqrt(a * b) +
+                2(
+                (2a * t * sin(t * sqrt(a * b))) / sqrt(a * b) +
+                    (-a * t * sin(2t * sqrt(a * b))) / sqrt(a * b)
+            ) * sqrt(a / b)
+        ) +
+            (-3b * (a / (b^2))) / sqrt(a / b) + (a * t * (a + 3b)) / sqrt(a * b) +
+            (-t * (a^2) * cos(2t * sqrt(a * b))) / sqrt(a * b) + 6sqrt(a / b) +
+            2(cos(2t * sqrt(a * b)) - 4cos(t * sqrt(a * b))) * sqrt(a / b) +
+            6t * sqrt(a * b) + sin(2t * sqrt(a * b)) - 8sin(t * sqrt(a * b))
+    ) /
+        (4.0(a^0.5) * (b^1.5)) +
+        (
+        (4cos(t * sqrt(a * b))) / sqrt(b / a) + (-cos(2t * sqrt(a * b))) / sqrt(b / a) +
+            (a * t * (b + 3a)) / sqrt(a * b) +
+            (-4t * (a^2) * cos(t * sqrt(a * b))) / sqrt(a * b) +
+            (a * t * (a - b) * cos(2t * sqrt(a * b))) / sqrt(a * b) +
+            (-4t * (a^2) * sqrt(b / a) * sin(t * sqrt(a * b))) / sqrt(a * b) +
+            (2t * (a^2) * sqrt(b / a) * sin(2t * sqrt(a * b))) / sqrt(a * b) +
+            -3 / sqrt(b / a) + 2t * sqrt(a * b) - sin(2t * sqrt(a * b))
+    ) /
+        (4.0(a^1.5) * (b^0.5)) +
+        (
+        -2.0(a^1.5) *
+            (
+            (
+                (a - b) * sin(2t * sqrt(a * b)) + 8a * sqrt(b / a) * cos(t * sqrt(a * b)) +
+                    2t * (b + 3a) * sqrt(a * b) - 6a * sqrt(b / a) - 8a * sin(t * sqrt(a * b)) -
+                    2a * sqrt(b / a) * cos(2t * sqrt(a * b))
+            ) / (16.0b * (a^3.0))
+        )
+    ) / (b^0.5) -
+        6.0(a^0.5) * (b^0.5) *
+        (
+        (
+            b * (
+                2(cos(2t * sqrt(a * b)) - 4cos(t * sqrt(a * b))) * sqrt(a / b) +
+                    sin(2t * sqrt(a * b)) - 8sin(t * sqrt(a * b))
+            ) + 6b * sqrt(a / b) +
+                2t * (a + 3b) * sqrt(a * b) - a * sin(2t * sqrt(a * b))
+        ) / (16.0a * (b^3.0))
+    )
+    return [d1, d2]
+end
+
+function callback_saving_linear(u, t, integrator, sol)
+    return -1 .* [-sol(t)[2] 0; 0 sol(t)[1]]' * u
+end
+function callback_saving_linear_inplace(du, u, t, integrator, sol)
+    return du .= -1 .* [-sol(t)[2] 0; 0 sol(t)[1]]' * u
+end
+
+u0 = [1.0, 1.0]     # initial condition
+tspan = (0.0, 10.0) # simulation time
+p = [1.0, 2.0]      # parameters
+prob = ODEProblem(simple_linear_system, u0, tspan, p)
+sol = solve(prob, Tsit5(), abstol = 1.0e-14, reltol = 1.0e-14)
+
+integrand_values = IntegrandValuesSum(DiffEqCallbacks.allocate_zeros(p))
+integrand_values_inplace = IntegrandValuesSum(DiffEqCallbacks.allocate_zeros(p))
+cb = IntegratingGKSumCallback(
+    (u, t, integrator) -> callback_saving_linear(u, t, integrator, sol),
+    integrand_values, zeros(length(p))
+)
+cb_inplace = IntegratingGKSumCallback(
+    (du, u, t, integrator) -> callback_saving_linear_inplace(
+        du,
+        u,
+        t,
+        integrator,
+        sol
+    ),
+    integrand_values_inplace, zeros(length(p))
+)
+prob_adjoint = ODEProblem(
+    (u, p, t) -> adjoint_linear(u, p, t, sol),
+    [0.0, 0.0],
+    (tspan[end], tspan[1]),
+    p,
+    callback = cb
+)
+prob_adjoint_inplace = ODEProblem(
+    (du, u, p, t) -> adjoint_linear_inplace(du, u, p, t, sol),
+    [0.0, 0.0],
+    (tspan[end], tspan[1]),
+    p,
+    callback = cb_inplace
+)
+sol_adjoint = solve(prob_adjoint, Tsit5(), abstol = 1.0e-14, reltol = 1.0e-14)
+# out-of-place is done
+sol_adjoint_inplace = solve(prob_adjoint_inplace, Tsit5(), abstol = 1.0e-14, reltol = 1.0e-14)
+# in-place is done
+
+dGdp_new = compute_dGdp(integrand_values)
+dGdp_new_inplace = compute_dGdp(integrand_values_inplace)
+dGdp_analytical = analytical_derivative(p, tspan[end])
+
+@test isapprox(dGdp_analytical, integrand_values.integrand, atol = 1.0e-11, rtol = 1.0e-11)
+@test isapprox(
+    dGdp_analytical, integrand_values_inplace.integrand, atol = 1.0e-11, rtol = 1.0e-11
+)
+
+# integrand_inplace = true: in-place integrand with an out-of-place problem
+using StaticArrays
+prob_oop = ODEProblem((u, p, t) -> SVector(1.0), SVector(0.0), (0.0, 1.0))
+integrated = IntegrandValuesSum(zeros(1))
+sol = solve(
+    prob_oop, Euler(),
+    callback = IntegratingGKSumCallback(
+        (out, u, t, integrator) -> (out[1] = u[1]; nothing), integrated, Float64[0.0];
+        integrand_inplace = true
+    ),
+    dt = 0.1
+)
+@test integrated.integrand[1] == 0.5
+
+@test_throws ArgumentError IntegratingGKSumCallback(
+    (out, u, t, integrator) -> nothing, IntegrandValuesSum(zeros(1)), nothing;
+    integrand_inplace = true
+)
+
+# A tolerance below the roundoff level of the integrand terminates with a
+# warning instead of recursing until the stack overflows
+prob_tol = ODEProblem((du, u, p, t) -> (du .= -u; nothing), [1.0], (0.0, 1.0))
+exact_tol = (1 - exp(-2)) / 2
+integrated_tol = IntegrandValuesSum([0.0])
+solve(
+    prob_tol, Tsit5(),
+    callback = IntegratingGKSumCallback(
+        (out, u, t, integrator) -> (out .= u .^ 2), integrated_tol, [0.0], 1.0e-12
+    )
+)
+reference_tol = integrated_tol.integrand[1]
+for tol in (1.0e-20, 1.0e-17, 0.0)
+    integrated_unattainable = IntegrandValuesSum([0.0])
+    @test_logs (:warn, r"stopped before reaching the requested tolerance") match_mode = :any solve(
+        prob_tol, Tsit5(),
+        callback = IntegratingGKSumCallback(
+            (out, u, t, integrator) -> (out .= u .^ 2), integrated_unattainable, [0.0], tol
+        )
+    )
+    @test integrated_unattainable.integrand[1] ≈ exact_tol atol = 1.0e-5
+    @test integrated_unattainable.integrand[1] ≈ reference_tol atol = 1.0e-10
+end
+integrated_attainable = IntegrandValuesSum([0.0])
+@test_logs solve(
+    prob_tol, Tsit5(),
+    callback = IntegratingGKSumCallback(
+        (out, u, t, integrator) -> (out .= u .^ 2), integrated_attainable, [0.0], 1.0e-10
+    )
+)
+
+# A large component at its own roundoff level does not stop refinement of a
+# smaller component whose error is still resolvable
+exact_mixed = [1.0e15, (1 - cos(10.0)) / 10]
+prob_mixed_oop = ODEProblem((u, p, t) -> [0.0], [0.0], (0.0, 1.0))
+prob_mixed_iip = ODEProblem((du, u, p, t) -> (du .= 0.0; nothing), [0.0], (0.0, 1.0))
+for (prob_mixed, integrand_mixed) in (
+        (prob_mixed_oop, (u, t, integrator) -> [1.0e15, sin(10t)]),
+        (
+            prob_mixed_iip,
+            (out, u, t, integrator) -> (out .= [1.0e15, sin(10t)]; nothing),
+        ),
+    )
+    integrated_mixed = IntegrandValuesSum(zeros(2))
+    @test_logs solve(
+        prob_mixed, Euler(),
+        callback = IntegratingGKSumCallback(integrand_mixed, integrated_mixed, zeros(2)),
+        dt = 1.0, adaptive = false
+    )
+    @test integrated_mixed.integrand[1] ≈ exact_mixed[1]
+    @test integrated_mixed.integrand[2] ≈ exact_mixed[2] atol = 1.0e-7
+end
+
+# The unmet-tolerance warning is issued again when the same callback is reused
+integrated_reused = IntegrandValuesSum([0.0])
+cb_reused = IntegratingGKSumCallback(
+    (out, u, t, integrator) -> (out .= u .^ 2), integrated_reused, [0.0], 0.0
+)
+for _ in 1:2
+    @test_logs (:warn, r"stopped before reaching the requested tolerance") match_mode = :any solve(
+        prob_tol, Tsit5(), callback = cb_reused
+    )
+end

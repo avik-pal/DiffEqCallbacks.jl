@@ -1,23 +1,65 @@
 module DiffEqCallbacks
 
-  using DiffEqBase, RecursiveArrayTools, DataStructures, RecipesBase, StaticArrays,
-        NLsolve, ForwardDiff
+using ConcreteStructs: @concrete
+using DataStructures: DataStructures, BinaryMaxHeap, BinaryMinHeap
+using DiffEqBase: get_tstops, get_tstops_array, get_tstops_max
+using DifferentiationInterface: DifferentiationInterface, Constant
+using Base: adjoint, copyto!
+using LinearAlgebra: LinearAlgebra, axpy!, diagind, mul!
+using PrecompileTools: PrecompileTools
+using Random: Random, randn!
+using RecipesBase: @recipe
+using RecursiveArrayTools: RecursiveArrayTools, DiffEqArray, copyat_or_push!
+using SciMLBase: SciMLBase, CallbackSet, DiscreteCallback, DiscreteProblem,
+    NonlinearFunction, NonlinearProblem, RODEProblem,
+    ReturnCode, SDEProblem, add_tstop!, check_error, get_du,
+    get_proposed_dt, get_tmp_cache,
+    set_proposed_dt!, terminate!
+using StaticArraysCore: StaticArraysCore
 
-  import Base.Iterators
+# SciMLBase v3 renamed `u_modified!` → `derivative_discontinuity!` (with
+# an `@deprecate` on the old name). Support both SciMLBase v2 and v3 by
+# binding a const to whichever name the loaded SciMLBase provides. Both
+# `derivative_discontinuity!` and `u_modified!` are public in their
+# respective SciMLBase versions, so the qualified access is to public API; a
+# `const` (rather than a `using` import on one branch) keeps the name a single
+# local binding and avoids a stale-import false positive.
+const derivative_discontinuity! = if isdefined(SciMLBase, :derivative_discontinuity!)
+    SciMLBase.derivative_discontinuity!
+else
+    SciMLBase.u_modified!
+end
 
-  using Parameters: @unpack
+const DI = DifferentiationInterface
+true_condition(u, t, integrator) = true
 
-  import OrdinaryDiffEq: fix_dt_at_bounds!, modify_dt_for_tstops!,
-                         ODEIntegrator
+# Local reproduction of SciMLBase's `_unwrap_val` (a leading-underscore internal
+# that will not be made public): pull the value out of a `Val`, pass anything
+# else through unchanged.
+_unwrap_val(B) = B
+_unwrap_val(::Val{B}) where {B} = B
 
-  include("autoabstol.jl")
-  include("manifold.jl")
-  include("domain.jl")
-  include("stepsizelimiters.jl")
-  include("function_caller.jl")
-  include("saving.jl")
-  include("iterative_and_periodic.jl")
-  include("terminatesteadystate.jl")
-  include("preset_time.jl")
+# No-op default `initialize` for `DiscreteCallback`, matching SciMLBase's
+# (non-public) `INITIALIZE_DEFAULT`: reset the derivative-discontinuity flag.
+INITIALIZE_DEFAULT(cb, u, t, integrator) = derivative_discontinuity!(integrator, false)
+
+include("functor_helpers.jl")
+include("autoabstol.jl")
+include("manifold.jl")
+include("domain.jl")
+include("stepsizelimiters.jl")
+include("function_caller.jl")
+include("independentlylinearizedutils.jl")
+include("saving.jl")
+include("quadrature.jl")
+include("integrating.jl")
+include("integrating_sum.jl")
+include("iterative_and_periodic.jl")
+include("terminatesteadystate.jl")
+include("preset_time.jl")
+include("probints.jl")
+include("integrating_GK_affect.jl")
+include("integrating_GK_sum.jl")
+include("precompilation.jl")
 
 end # module

@@ -1,0 +1,314 @@
+"""
+    gauss_points::Vector{Vector{Float64}}
+
+Precomputed Gaussian nodes up to degree 2*10-1 = 19.
+Computed using FastGaussQuadrature.jl with the command `[gausslegendre(i)[1] for i in 1:10]`
+"""
+const gauss_points = [
+    [0.0],
+    [-0.5773502691896258, 0.5773502691896258],
+    [-0.7745966692414834, 0.0, 0.7745966692414834],
+    [-0.8611363115940526, -0.3399810435848563, 0.3399810435848563, 0.8611363115940526],
+    [-0.906179845938664, -0.5384693101056831, 0.0, 0.5384693101056831, 0.906179845938664],
+    [
+        -0.932469514203152,
+        -0.6612093864662645,
+        -0.2386191860831969,
+        0.2386191860831969,
+        0.6612093864662645,
+        0.932469514203152,
+    ],
+    [
+        -0.9491079123427586,
+        -0.7415311855993945,
+        -0.4058451513773972,
+        0.0,
+        0.4058451513773972,
+        0.7415311855993945,
+        0.9491079123427586,
+    ],
+    [
+        -0.9602898564975363,
+        -0.7966664774136267,
+        -0.525532409916329,
+        -0.1834346424956498,
+        0.1834346424956498,
+        0.525532409916329,
+        0.7966664774136267,
+        0.9602898564975363,
+    ],
+    [
+        -0.9681602395076261,
+        -0.8360311073266358,
+        -0.6133714327005904,
+        -0.3242534234038089,
+        0.0,
+        0.3242534234038089,
+        0.6133714327005904,
+        0.8360311073266358,
+        0.9681602395076261,
+    ],
+    [
+        -0.9739065285171717,
+        -0.8650633666889845,
+        -0.6794095682990244,
+        -0.4333953941292472,
+        -0.14887433898163122,
+        0.14887433898163122,
+        0.4333953941292472,
+        0.6794095682990244,
+        0.8650633666889845,
+        0.9739065285171717,
+    ],
+]
+"""
+    gauss_weights::Vector{Vector{Float64}}
+
+Precomputed Gaussian node weights up to degree 2*10-1 = 19.
+Computed using FastGaussQuadrature.jl with the command `[gausslegendre(i)[2] for i in 1:10]`
+"""
+const gauss_weights = [
+    [2.0],
+    [1.0, 1.0],
+    [0.5555555555555556, 0.8888888888888888, 0.5555555555555556],
+    [0.34785484513745385, 0.6521451548625462, 0.6521451548625462, 0.34785484513745385],
+    [
+        0.23692688505618908,
+        0.47862867049936647,
+        0.5688888888888889,
+        0.47862867049936647,
+        0.23692688505618908,
+    ],
+    [
+        0.17132449237917025,
+        0.3607615730481385,
+        0.46791393457269126,
+        0.46791393457269126,
+        0.3607615730481385,
+        0.17132449237917025,
+    ],
+    [
+        0.1294849661688702,
+        0.2797053914892766,
+        0.3818300505051189,
+        0.4179591836734694,
+        0.3818300505051189,
+        0.2797053914892766,
+        0.1294849661688702,
+    ],
+    [
+        0.10122853629037676,
+        0.22238103445337445,
+        0.31370664587788744,
+        0.36268378337836193,
+        0.36268378337836193,
+        0.31370664587788744,
+        0.22238103445337445,
+        0.10122853629037676,
+    ],
+    [
+        0.08127438836157437,
+        0.18064816069485742,
+        0.2606106964029354,
+        0.31234707704000275,
+        0.3302393550012598,
+        0.31234707704000275,
+        0.2606106964029354,
+        0.18064816069485742,
+        0.08127438836157437,
+    ],
+    [
+        0.06667134430868821,
+        0.14945134915058056,
+        0.21908636251598207,
+        0.2692667193099965,
+        0.2955242247147529,
+        0.2955242247147529,
+        0.2692667193099965,
+        0.21908636251598207,
+        0.14945134915058056,
+        0.06667134430868821,
+    ],
+]
+
+"""
+    IntegrandValues{tType, integrandType}
+
+Storage used by [`IntegratingCallback`](@ref) and [`IntegratingGKCallback`](@ref) for
+one quadrature estimate per accepted solver step. Construct it before solving and pass the
+same instance to the callback; the callback appends to it in place.
+
+# Fields
+
+  - `ts::Vector{tType}`: accepted-step end times associated with the stored estimates.
+  - `integrand::Vector{integrandType}`: quadrature estimates over the corresponding
+    solver steps. Entry `integrand[i]` approximates the integral from the previous saved
+    solver time to `ts[i]`.
+
+Do not mutate either vector while a solve using the storage is active.
+
+# Constructors
+
+  - `IntegrandValues(tType, integrandType)`: create empty storage with time element type
+    `tType` and estimate element type `integrandType`.
+
+# Examples
+
+```julia
+values = IntegrandValues(Float64, Float64)
+```
+"""
+struct IntegrandValues{tType, integrandType}
+    ts::Vector{tType}
+    integrand::Vector{integrandType}
+end
+
+"""
+    IntegrandValues(tType::Type, integrandType::Type)
+
+Create empty [`IntegrandValues`](@ref) storage.
+
+# Arguments
+
+  - `tType`: element type used for saved step end times.
+  - `integrandType`: element type returned by the callback integrand function.
+
+# Returns
+
+  - `IntegrandValues{tType, integrandType}`: storage whose `ts` and `integrand` vectors are
+    empty.
+"""
+function IntegrandValues(::Type{tType}, ::Type{integrandType}) where {tType, integrandType}
+    return IntegrandValues{tType, integrandType}(Vector{tType}(), Vector{integrandType}())
+end
+
+function Base.show(io::IO, integrand_values::IntegrandValues)
+    integrandType = eltype(integrand_values.integrand)
+    return print(
+        io, "IntegrandValues{integrandType=", integrandType, "}",
+        "\nintegrand:\n", integrand_values.integrand
+    )
+end
+
+mutable struct SavingIntegrandAffect{
+        IntegrandFunc,
+        tType,
+        IntegrandType,
+        IntegrandCacheType,
+        QuadratureType,
+    }
+    integrand_func::IntegrandFunc
+    integrand_values::IntegrandValues{tType, IntegrandType}
+    integrand_cache::IntegrandCacheType
+    accumulation_cache::IntegrandCacheType
+    gauss_pts::Vector{Vector{QuadratureType}}
+    gauss_ws::Vector{Vector{QuadratureType}}
+end
+
+function (affect!::SavingIntegrandAffect)(integrator)
+    n = 0
+    if integrator.sol.prob isa Union{SDEProblem, RODEProblem}
+        n = 10
+    else
+        n = div(SciMLBase.alg_order(integrator.alg) + 1, 2)
+    end
+    accumulation_cache = recursive_zero!(affect!.accumulation_cache)
+    for i in 1:n
+        t_temp = ((integrator.t - integrator.tprev) / 2) * affect!.gauss_pts[n][i] +
+            (integrator.t + integrator.tprev) / 2
+        if SciMLBase.isinplace(integrator.sol.prob)
+            curu = first(get_tmp_cache(integrator))
+            integrator(curu, t_temp)
+            if affect!.integrand_cache == nothing
+                accumulation_cache = recursive_axpy!(
+                    affect!.gauss_ws[n][i],
+                    affect!.integrand_func(curu, t_temp, integrator), accumulation_cache
+                )
+            else
+                affect!.integrand_func(affect!.integrand_cache, curu, t_temp, integrator)
+                accumulation_cache = recursive_axpy!(
+                    affect!.gauss_ws[n][i], affect!.integrand_cache, accumulation_cache
+                )
+            end
+        else
+            accumulation_cache = recursive_axpy!(
+                affect!.gauss_ws[n][i],
+                affect!.integrand_func(integrator(t_temp), t_temp, integrator),
+                accumulation_cache
+            )
+        end
+    end
+    accumulation_cache = recursive_scalar_mul!(
+        accumulation_cache,
+        (integrator.t - integrator.tprev) / 2
+    )
+    push!(affect!.integrand_values.ts, integrator.t)
+    push!(affect!.integrand_values.integrand, recursive_copy(accumulation_cache))
+    return derivative_discontinuity!(integrator, false)
+end
+
+"""
+    IntegratingCallback(integrand_func, integrand_values::IntegrandValues,
+        integrand_prototype) -> DiscreteCallback
+
+Construct a callback that uses fixed-order Gaussian quadrature to save the integral of
+`integrand_func` over each accepted solver step. The callback appends the step end time to
+`integrand_values.ts` and the corresponding integral estimate to
+`integrand_values.integrand`. Quadrature nodes and weights are evaluated in the element
+type of the integrand and the integration time, so higher-precision integrands such as
+`BigFloat` are not capped at `Float64` precision.
+
+# Arguments
+
+  - `integrand_func`: for an out-of-place problem, define
+    `integrand_func(u, t, integrator)` to return the integrand. For an in-place problem,
+    define `integrand_func(out, u, t, integrator)` to write the integrand into `out`; when
+    `integrand_prototype === nothing`, the allocating three-argument form is used instead.
+    A returned value must not alias `u`.
+  - `integrand_values::IntegrandValues`: storage for accepted-step end times and quadrature
+    estimates. Its element types must accept the integration times and integrand outputs.
+  - `integrand_prototype`: representative integrand output used to allocate the in-place
+    output and accumulation buffers. Pass `nothing` to use the allocating form.
+
+# Returns
+
+  - `DiscreteCallback`: a callback that saves one Gaussian quadrature estimate per accepted
+    step.
+
+# Examples
+
+```julia
+using DiffEqCallbacks, OrdinaryDiffEq
+
+prob = ODEProblem((u, p, t) -> -u, 1.0, (0.0, 1.0))
+values = IntegrandValues(Float64, Float64)
+cb = IntegratingCallback((u, t, integrator) -> u^2, values, 0.0)
+
+sol = solve(prob, Tsit5(); callback = cb)
+integrals_by_step = values.integrand
+```
+
+!!! note
+
+    This method is currently limited to ODE solvers of order 10 or lower.
+
+    For the four-argument in-place form of `integrand_func`, pass an
+    `integrand_prototype` that can be used as its output buffer.
+"""
+function IntegratingCallback(
+        integrand_func, integrand_values::IntegrandValues, integrand_prototype
+    )
+    integrand_el = eltype(eltype(integrand_values.integrand))
+    time_el = eltype(integrand_values.ts)
+    prototype_el = integrand_prototype === nothing ? integrand_el : eltype(integrand_prototype)
+    quadrature_el = _quadrature_eltype(integrand_el, time_el, prototype_el)
+    gauss_pts, gauss_ws = _gauss_tables(quadrature_el)
+    affect! = SavingIntegrandAffect(
+        integrand_func, integrand_values, integrand_prototype,
+        allocate_zeros(integrand_prototype), gauss_pts, gauss_ws
+    )
+    condition = true_condition
+    return DiscreteCallback(condition, affect!, save_positions = (false, false))
+end
+
+export IntegratingCallback, IntegrandValues

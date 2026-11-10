@@ -1,13 +1,10 @@
-using OrdinaryDiffEq, DiffEqProblemLibrary, Test, DiffEqBase, DiffEqCallbacks
-
-using DiffEqProblemLibrary.ODEProblemLibrary: importodeproblems; importodeproblems()
-import DiffEqProblemLibrary.ODEProblemLibrary: prob_ode_linear
-
+using OrdinaryDiffEqTsit5, Test, DiffEqBase, DiffEqCallbacks
+import ODEProblemLibrary: prob_ode_linear
 
 prob = prob_ode_linear
 
-time_choice(integrator) = rand()+integrator.t
-affect!(integrator) =  integrator.u*=2
-cb = IterativeCallback(time_choice,affect!)
+time_choice(integrator) = rand() + integrator.t
+iterative_affect!(integrator) = integrator.u *= 2
+cb = IterativeCallback(time_choice, iterative_affect!)
 
-sol = solve(prob,Tsit5(),callback=cb)
+sol = solve(prob, Tsit5(), callback = cb)
